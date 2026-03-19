@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+
+  database:
+    image: postgres:15
+    container_name: vpn_database
+    environment:
+      POSTGRES_DB: vpnl2
+      POSTGRES_USER: vpnuser
+      POSTGRES_PASSWORD: vpnpass
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  server:
+    build: ./server
+    container_name: vpn_server
+    depends_on:
+      - database
+    environment:
+      DB_HOST: database
+      DB_NAME: vpnl2
+      DB_USER: vpnuser
+      DB_PASS: vpnpass
+      JWT_SECRET: "mi_clave_secreta_super_segura_2024"
+    ports:
+      - "8888:8888/udp"   # VSwitch UDP
+      - "5000:5000"       # Web/API
+
+volumes:
+  pgdata:
+  
