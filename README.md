@@ -73,7 +73,7 @@ Flujo de un paquete:
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/ekaren459/vpn-l2-vswitch.git
+git clone https://github.com/ekaren459/VPN-L2.git
 cd vpn-l2-vswitch/VPN\ USM
 ```
 
@@ -167,16 +167,13 @@ docker rm -f vport1 vport2
 ### Paso 3 — Levantar VPort 1 (en una terminal nueva)
 
 ```bash
-docker run --rm -it --privileged --cap-add=NET_ADMIN \
-  --device=/dev/net/tun \
-  --network vpnusm_default \
-  --name vport1 vpnusm-server bash
+docker run --rm -it --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport1 vpnusm-client bash
 ```
 
 Dentro del contenedor:
 
 ```bash
-./vport vpn_server 8888 "PEGA_TOKEN_AQUI" &
+./vport 172.19.0.3 8888 "Token1" &
 ip addr add 10.1.1.101/24 dev tapyuan
 ip link set tapyuan up
 ```
@@ -184,16 +181,13 @@ ip link set tapyuan up
 ### Paso 4 — Levantar VPort 2 (en otra terminal nueva)
 
 ```bash
-docker run --rm -it --privileged --cap-add=NET_ADMIN \
-  --device=/dev/net/tun \
-  --network vpnusm_default \
-  --name vport2 vpnusm-server bash
+docker run --rm -it --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport2 vpnusm-client bash
 ```
 
 Dentro del contenedor:
 
 ```bash
-./vport vpn_server 8888 "PEGA_SEGUNDO_TOKEN_AQUI" &
+./vport 172.19.0.3 8888 "token 2" &
 ip addr add 10.1.1.102/24 dev tapyuan
 ip link set tapyuan up
 ```
