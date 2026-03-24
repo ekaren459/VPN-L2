@@ -137,76 +137,43 @@ Para obtener un token JWT desde la terminal:
 
 ```powershell
 # PowerShell
-Invoke-RestMethod -Uri "http://localhost:5000/api/login" -Method POST -ContentType "application/json" -Body '{"nombre_usuario":"admin","password":"admin123"}'
+
 ```
 
-```bash
-# Linux/Mac
-curl -X POST http://localhost:5000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{"nombre_usuario":"admin","password":"admin123"}'
-```
 
 ---
 
-## Conectar un VPort
+# 1. Asegurar la ruta correcta (Cámbiala si mueves la carpeta)
+cd "C:\Users\PC\Documents\VPN L2\VPN-L2"
 
-### Paso 1 — Obtener token JWT
+# 2. Levantar TODO (Base de datos y Servidor)
+docker-compose up --build -d
+Start-Sleep 5 # Le damos 5 segundos a PostgreSQL para que despierte bien
 
-```powershell
-$resp = Invoke-RestMethod -Uri "http://localhost:5000/api/login" -Method POST -ContentType "application/json" -Body '{"nombre_usuario":"admin","password":"admin123"}'
-$token = $resp.token
-```
+# 3. Limpieza de clientes anteriores
+docker rm -f vport1 vport2 2>$null
 
-### Paso 2 — Limpiar contenedores anteriores si existen
+# 4. Crear los contenedores base inmortales
+docker run -d --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport1 vpnusm-client bash -c "tail -f /dev/null"
+docker run -d --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport2 vpnusm-client bash -c "tail -f /dev/null"
 
-```bash
-docker rm -f vport1 vport2
-```
+# 5. Extraer IPs y Tokens
+$server_ip = docker inspect vpn_server -f "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}"
+$t1 = (Invoke-RestMethod -Uri "http://localhost:5000/api/login" -Method POST -ContentType "application/json" -Body '{"nombre_usuario":"admin","password":"admin123"}').token
+$t2 = (Invoke-RestMethod -Uri "http://localhost:5000/api/login" -Method POST -ContentType "application/json" -Body '{"nombre_usuario":"admin","password":"admin123"}').token
 
-### Paso 3 — Levantar VPort 1 (en una terminal nueva)
+# 6. Ejecutar los túneles C
+docker exec -d vport1 bash -c "./vport $server_ip 8888 '$t1'"
+docker exec -d vport2 bash -c "./vport $server_ip 8888 '$t2'"
+Start-Sleep 3
 
-```bash
-docker run --rm -it --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport1 vpnusm-client bash
-```
+# 7. Configurar red virtual (TAP)
+docker exec vport1 bash -c "ip addr add 10.1.1.101/24 dev tapyuan && ip link set tapyuan up"
+docker exec vport2 bash -c "ip addr add 10.1.1.102/24 dev tapyuan && ip link set tapyuan up"
 
-Dentro del contenedor:
+# 8. Verificación de conectividad
+docker exec vport1 ping -c 3 10.1.1.102
 
-```bash
-./vport 172.19.0.3 8888 "Token1" &
-ip addr add 10.1.1.101/24 dev tapyuan
-ip link set tapyuan up
-```
-
-### Paso 4 — Levantar VPort 2 (en otra terminal nueva)
-
-```bash
-docker run --rm -it --privileged --cap-add=NET_ADMIN --device=/dev/net/tun --network vpn-l2_default --name vport2 vpnusm-client bash
-```
-
-Dentro del contenedor:
-
-```bash
-./vport 172.19.0.3 8888 "token 2" &
-ip addr add 10.1.1.102/24 dev tapyuan
-ip link set tapyuan up
-```
-
-### Paso 5 — Verificar conectividad cifrada
-
-Desde vport1:
-
-```bash
-ping 10.1.1.102
-```
-
-Si responde, las tramas viajan cifradas con AES-256-GCM a través del VSwitch. En los logs del servidor deberías ver:
-
-```
-[AUTH] VPort autenticado: ('172.18.0.x', ...) usuario 1
-[DB] MAC guardada: xx:xx:xx:xx:xx:xx → 172.18.0.x:PORT
-[MAC] Aprendida xx:xx:xx:xx:xx:xx → ('172.18.0.x', PORT)
-```
 
 ---
 
