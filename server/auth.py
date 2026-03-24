@@ -7,9 +7,8 @@ from functools import wraps
 from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
-SECRET_KEY = os.environ.get("JWT_SECRET", "clave_secreta_cambiar_en_produccion")
+SECRET_KEY = os.environ.get("JWT_SECRET", "mi_clave_secreta_super_segura_2024")
 
-# --- Conexión a la base de datos ---
 def get_db():
     return psycopg2.connect(
         host=os.environ.get("DB_HOST", "database"),
@@ -18,7 +17,6 @@ def get_db():
         password=os.environ.get("DB_PASS", "vpnpass")
     )
 
-# --- Decorador para proteger rutas ---
 def requiere_token(f):
     @wraps(f)
     def decorador(*args, **kwargs):
@@ -35,7 +33,6 @@ def requiere_token(f):
         return f(*args, **kwargs)
     return decorador
 
-# --- Página de login (HTML) ---
 LOGIN_HTML = """
 <!DOCTYPE html>
 <html lang="es">
@@ -44,12 +41,12 @@ LOGIN_HTML = """
     <title>VPN L2 - Login</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #1a1a2e; display: flex;
-               justify-content: center; align-items: center; min-height: 100vh; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e;
+               display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .card { background: #16213e; padding: 40px; border-radius: 12px;
                 width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
         h2 { color: #e94560; margin-bottom: 8px; }
-        p { color: #aaa; font-size: 13px; margin-bottom: 24px; }
+        p  { color: #aaa; font-size: 13px; margin-bottom: 24px; }
         label { color: #ccc; font-size: 13px; display: block; margin-bottom: 6px; }
         input { width: 100%; padding: 10px 14px; border-radius: 8px;
                 border: 1px solid #0f3460; background: #0f3460;
@@ -59,7 +56,8 @@ LOGIN_HTML = """
                  font-size: 15px; cursor: pointer; }
         button:hover { background: #c73652; }
         #msg { margin-top: 16px; font-size: 13px; text-align: center; }
-        .error { color: #e94560; } .ok { color: #4ecca3; }
+        .error { color: #e94560; }
+        .ok    { color: #4ecca3; }
     </style>
 </head>
 <body>
@@ -67,7 +65,7 @@ LOGIN_HTML = """
     <h2>🔒 VPN L2</h2>
     <p>Ingresa tus credenciales para conectarte</p>
     <label>Usuario</label>
-    <input type="text" id="user" placeholder="nombre_usuario">
+    <input type="text" id="user" placeholder="nombre_usuario" value="admin">
     <label>Contraseña</label>
     <input type="password" id="pass" placeholder="••••••••">
     <button onclick="login()">Iniciar sesión</button>
@@ -87,20 +85,20 @@ async function login() {
     const msg = document.getElementById('msg');
     if (res.ok) {
         msg.className = 'ok';
-        msg.textContent = '✅ Login exitoso. Token: ' + data.token.substring(0,30) + '...';
+        msg.textContent = '✅ Login exitoso...';
         localStorage.setItem('vpn_token', data.token);
-        setTimeout(() => window.location.href = '/dashboard', 1500);
+        setTimeout(() => window.location.href = '/dashboard', 1000);
     } else {
         msg.className = 'error';
         msg.textContent = '❌ ' + data.error;
     }
 }
+document.addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
 </script>
 </body>
 </html>
 """
 
-# --- Dashboard (requiere login) ---
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="es">
@@ -108,66 +106,128 @@ DASHBOARD_HTML = """
     <meta charset="UTF-8">
     <title>VPN L2 - Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee;
-               padding: 40px; }
-        h1 { color: #4ecca3; } h3 { color: #e94560; margin: 24px 0 12px; }
-        table { border-collapse: collapse; width: 100%; max-width: 800px; }
-        th { background: #0f3460; color: #4ecca3; padding: 10px; text-align: left; }
-        td { padding: 8px 10px; border-bottom: 1px solid #0f3460; font-size: 13px; }
-        .badge { background: #4ecca3; color: #1a1a2e; padding: 2px 8px;
-                 border-radius: 12px; font-size: 11px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #1a1a2e; color: #eee; padding: 30px; }
+        h1  { color: #4ecca3; margin-bottom: 6px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 20px; }
+        .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+        .metric { background: #16213e; border-radius: 10px; padding: 16px; text-align: center; }
+        .metric-val { font-size: 28px; font-weight: bold; color: #4ecca3; }
+        .metric-lbl { font-size: 12px; color: #888; margin-top: 4px; }
+        .section { background: #16213e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+        h3 { color: #e94560; margin-bottom: 12px; font-size: 14px; }
+        table { border-collapse: collapse; width: 100%; }
+        th { background: #0f3460; color: #4ecca3; padding: 8px 10px; text-align: left; font-size: 12px; }
+        td { padding: 7px 10px; border-bottom: 1px solid #0f3460; font-size: 12px; color: #ccc; }
+        tr:last-child td { border-bottom: none; }
+        .badge-ok  { background: #4ecca3; color: #1a1a2e; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+        .badge-err { background: #e94560; color: #fff;    padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+        .mac  { font-family: monospace; color: #4ecca3; }
+        .ip   { font-family: monospace; color: #aaa; }
+        .refresh { float: right; font-size: 11px; color: #555; }
+        .token-box { background: #0f3460; border-radius: 6px; padding: 8px 10px;
+                     font-size: 10px; color: #4ecca3; word-break: break-all; margin-bottom: 16px; }
+        .btn-logout { background: #e94560; color: white; border: none; border-radius: 6px;
+                      padding: 6px 14px; cursor: pointer; font-size: 12px; float: right; }
     </style>
 </head>
 <body>
-    <h1>🌐 VPN L2 - Panel de Control</h1>
-    <p id="token_display" style="font-size:11px; color:#555; word-break:break-all; 
-   background:#0f3460; padding:8px; border-radius:6px; margin:8px 0 20px">
-   Cargando token...
-</p>
-    <p id="usuario" style="color:#aaa; margin: 8px 0 0"></p>
-    <h3>Tabla MAC Cache</h3>
-    <table id="tabla_mac">
-        <tr><th>MAC Address</th><th>VPort (IP:Puerto)</th><th>Último visto</th></tr>
+<h1>🌐 VPN L2 — Panel de Control <button class="btn-logout" onclick="logout()">Cerrar sesión</button></h1>
+<p class="subtitle" id="refresh-info">Actualizando cada 5 segundos...</p>
+
+<div class="token-box" id="token-box">Cargando token...</div>
+
+<div class="metrics">
+    <div class="metric"><div class="metric-val" id="m-macs">—</div><div class="metric-lbl">MACs aprendidas</div></div>
+    <div class="metric"><div class="metric-val" id="m-sesiones">—</div><div class="metric-lbl">Sesiones registradas</div></div>
+    <div class="metric"><div class="metric-val" id="m-activas">—</div><div class="metric-lbl">Sesiones activas</div></div>
+    <div class="metric"><div class="metric-val" id="m-cerradas">—</div><div class="metric-lbl">Sesiones cerradas</div></div>
+</div>
+
+<div class="section">
+    <h3>Tabla MAC Cache <span class="refresh" id="mac-ts"></span></h3>
+    <table>
+        <thead><tr><th>MAC Address</th><th>VPort (IP:Puerto)</th><th>Último visto</th></tr></thead>
+        <tbody id="tbody-mac"><tr><td colspan="3" style="color:#555">Cargando...</td></tr></tbody>
     </table>
-    <h3>Sesiones Activas</h3>
-    <table id="tabla_sesiones">
-        <tr><th>Dispositivo</th><th>IP Pública</th><th>Inicio</th><th>Estado</th></tr>
+</div>
+
+<div class="section">
+    <h3>Sesiones VPN <span class="refresh" id="ses-ts"></span></h3>
+    <table>
+        <thead><tr><th>ID</th><th>IP Pública</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
+        <tbody id="tbody-ses"><tr><td colspan="5" style="color:#555">Cargando...</td></tr></tbody>
     </table>
+</div>
+
 <script>
 const token = localStorage.getItem('vpn_token');
-if (!token) window.location.href = '/';
+if (!token) { window.location.href = '/'; }
 
-async function cargarDatos() {
-    const r1 = await fetch('/api/mac-cache', {headers: {'Authorization': 'Bearer ' + token}});
-    if (r1.status === 401) { window.location.href = '/'; return; }
-    const macs = await r1.json();
-    const tm = document.getElementById('tabla_mac');
-    macs.forEach(m => {
-        const tr = tm.insertRow();
-        tr.insertCell().textContent = m.mac_address;
-        tr.insertCell().textContent = m.vport_addr;
-        tr.insertCell().textContent = new Date(m.timestamp_ultimo_visto).toLocaleString();
-    });
+document.getElementById('token-box').textContent = 'JWT: ' + token;
 
-    const r2 = await fetch('/api/sesiones', {headers: {'Authorization': 'Bearer ' + token}});
-    const ses = await r2.json();
-    const ts = document.getElementById('tabla_sesiones');
-    ses.forEach(s => {
-        const tr = ts.insertRow();
-        tr.insertCell().textContent = s.id_device;
-        tr.insertCell().textContent = s.ip_publica_cliente;
-        tr.insertCell().textContent = new Date(s.timestamp_inicio).toLocaleString();
-        const td = tr.insertCell();
-        td.innerHTML = s.timestamp_fin ? 'Cerrada' : '<span class="badge">Activa</span>';
-    });
+function logout() {
+    localStorage.removeItem('vpn_token');
+    window.location.href = '/';
 }
-cargarDatos();
+
+async function cargar() {
+    try {
+        const headers = { 'Authorization': 'Bearer ' + token };
+
+        // MACs
+        const r1 = await fetch('/api/mac-cache', { headers });
+        if (r1.status === 401) { logout(); return; }
+        const macs = await r1.json();
+        document.getElementById('m-macs').textContent = macs.length;
+        document.getElementById('mac-ts').textContent = new Date().toLocaleTimeString();
+        const tbMac = document.getElementById('tbody-mac');
+        if (macs.length === 0) {
+            tbMac.innerHTML = '<tr><td colspan="3" style="color:#555">Sin MACs aprendidas — conecta un VPort</td></tr>';
+        } else {
+            tbMac.innerHTML = macs.map(m => `
+                <tr>
+                    <td><span class="mac">${m.mac_address}</span></td>
+                    <td><span class="ip">${m.vport_addr}</span></td>
+                    <td>${new Date(m.timestamp_ultimo_visto).toLocaleString()}</td>
+                </tr>`).join('');
+        }
+
+        // Sesiones
+        const r2 = await fetch('/api/sesiones', { headers });
+        const ses = await r2.json();
+        document.getElementById('m-sesiones').textContent = ses.length;
+        document.getElementById('m-activas').textContent  = ses.filter(s => !s.timestamp_fin).length;
+        document.getElementById('m-cerradas').textContent = ses.filter(s =>  s.timestamp_fin).length;
+        document.getElementById('ses-ts').textContent = new Date().toLocaleTimeString();
+        const tbSes = document.getElementById('tbody-ses');
+        if (ses.length === 0) {
+            tbSes.innerHTML = '<tr><td colspan="5" style="color:#555">Sin sesiones registradas</td></tr>';
+        } else {
+            tbSes.innerHTML = ses.map(s => `
+                <tr>
+                    <td>${s.id_device}</td>
+                    <td><span class="ip">${s.ip_publica_cliente}</span></td>
+                    <td>${new Date(s.timestamp_inicio).toLocaleString()}</td>
+                    <td>${s.timestamp_fin ? new Date(s.timestamp_fin).toLocaleString() : '—'}</td>
+                    <td>${s.timestamp_fin
+                        ? '<span class="badge-err">Cerrada</span>'
+                        : '<span class="badge-ok">Activa</span>'}</td>
+                </tr>`).join('');
+        }
+
+    } catch(e) {
+        document.getElementById('refresh-info').textContent = 'Error de conexión: ' + e.message;
+    }
+}
+
+cargar();
+setInterval(cargar, 5000);
 </script>
 </body>
 </html>
 """
 
-# --- Rutas ---
 @app.route("/")
 def index():
     return render_template_string(LOGIN_HTML)
@@ -182,8 +242,10 @@ def login():
     try:
         db = get_db()
         cur = db.cursor()
-        cur.execute("SELECT id_user, password_hash, activo FROM T_Usuarios WHERE nombre_usuario = %s",
-                    (datos["nombre_usuario"],))
+        cur.execute(
+            "SELECT id_user, password_hash, activo FROM T_Usuarios WHERE nombre_usuario = %s",
+            (datos["nombre_usuario"],)
+        )
         usuario = cur.fetchone()
         if not usuario or not bcrypt.checkpw(datos["password"].encode(), usuario[1].encode()):
             return jsonify({"error": "Credenciales incorrectas"}), 401
@@ -193,32 +255,60 @@ def login():
         expiracion = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
         token = jwt.encode({"id_user": usuario[0], "exp": expiracion}, SECRET_KEY, algorithm="HS256")
 
-        cur.execute("""INSERT INTO T_Tokens (id_user, token_string, fecha_expiracion)
-                       VALUES (%s, %s, %s)""", (usuario[0], token, expiracion))
+        cur.execute(
+            "INSERT INTO T_Tokens (id_user, token_string, fecha_expiracion) VALUES (%s, %s, %s)",
+            (usuario[0], token, expiracion)
+        )
         db.commit()
+        db.close()
+        print(f"[LOGIN] Usuario {usuario[0]} autenticado, token emitido")
         return jsonify({"token": token, "expira": expiracion.isoformat()})
     except Exception as e:
+        print(f"[LOGIN] Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/mac-cache")
 @requiere_token
 def mac_cache():
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT mac_address, vport_addr, timestamp_ultimo_visto FROM T_Mac_Cache ORDER BY timestamp_ultimo_visto DESC")
-    rows = cur.fetchall()
-    return jsonify([{"mac_address": r[0], "vport_addr": r[1], "timestamp_ultimo_visto": r[2].isoformat()} for r in rows])
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "SELECT mac_address, vport_addr, timestamp_ultimo_visto FROM T_Mac_Cache ORDER BY timestamp_ultimo_visto DESC"
+        )
+        rows = cur.fetchall()
+        db.close()
+        return jsonify([{
+            "mac_address": r[0].strip(),
+            "vport_addr": r[1],
+            "timestamp_ultimo_visto": r[2].isoformat()
+        } for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/sesiones")
 @requiere_token
 def sesiones():
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT id_device, ip_publica_cliente::text, timestamp_inicio, timestamp_fin FROM T_Sesiones ORDER BY timestamp_inicio DESC LIMIT 20")
-    rows = cur.fetchall()
-    return jsonify([{"id_device": r[0], "ip_publica_cliente": r[1],
-                     "timestamp_inicio": r[2].isoformat(),
-                     "timestamp_fin": r[3].isoformat() if r[3] else None} for r in rows])
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id_device, ip_publica_cliente::text, timestamp_inicio, timestamp_fin FROM T_Sesiones ORDER BY timestamp_inicio DESC LIMIT 20"
+        )
+        rows = cur.fetchall()
+        db.close()
+        return jsonify([{
+            "id_device": r[0],
+            "ip_publica_cliente": r[1],
+            "timestamp_inicio": r[2].isoformat(),
+            "timestamp_fin": r[3].isoformat() if r[3] else None
+        } for r in rows])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/status")
+def status():
+    return jsonify({"status": "ok", "vswitch_port": 8888})
 
 from vswitch import iniciar_vswitch
 iniciar_vswitch()
